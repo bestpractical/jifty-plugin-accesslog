@@ -224,14 +224,18 @@ sub before_cleanup {
             return Jifty->config->framework("Web")->{Port};
         },
         P => sub { $$ },
-        s => sub { $a->header_out("Status") },
+        s => sub { $a->header_out("Status") =~ /^(\d+)/; $1 || "200" },
         t => sub { DateTime->from_epoch($self->start)->strftime(shift || "[%d/%b/%Y:%T %z]") },
         T => sub { sprintf "%.3fs", (Time::HiRes::time - $self->start) },
         u => sub { Jifty->web->current_user->username },
         U => sub {
-            my @f = $r->fragments;
-            return $r->path unless @f;
-            return '[' . join(", ", map {$_->path} @f ) . ']';
+            if (my @f = $r->fragments) {
+                return '[' . join(" ", map {s/ /%20/g;$_} map {$_->path} @f ) . ']';
+            } else {
+                my $path = $r->path;
+                $path =~ s/ /%20/g;
+                return $path;
+            }
         },
         v => sub { URI->new(Jifty->config->framework("Web")->{BaseURL})->host },
         x => $actions->(0),
