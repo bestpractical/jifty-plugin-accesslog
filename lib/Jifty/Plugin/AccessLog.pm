@@ -225,7 +225,7 @@ sub before_cleanup {
         },
         P => sub { $$ },
         s => sub { $a->header_out("Status") =~ /^(\d+)/; $1 || "200" },
-        t => sub { DateTime->from_epoch($self->start)->strftime(shift || "[%d/%b/%Y:%T %z]") },
+        t => sub { DateTime->from_epoch(epoch => $self->start)->strftime(shift || "[%d/%b/%Y:%T %z]") },
         T => sub { sprintf "%.3fs", (Time::HiRes::time - $self->start) },
         u => sub { Jifty->web->current_user->username },
         U => sub {
