@@ -177,10 +177,9 @@ Open, and append to, the logfile with the format specified.
 
 sub before_cleanup {
     my $self = shift;
-    my $cgi  = Jifty->handler->cgi;
     my $r    = Jifty->web->request;
-    my $a    = Jifty->handler->apache;
-    $a->header_out(Status => 200) unless defined $a->header_out("Status");
+    Jifty->web->response->status(200)
+      unless defined Jifty->web->response->status;
 
     my $actions = sub {
         my $long = shift;
@@ -207,16 +206,16 @@ sub before_cleanup {
 
     my %ESCAPES = (
         '%' => sub { '%' },
-        a => sub { $cgi->remote_host },
+        a => sub { $r->remost_host },
         C => sub { my $c = { CGI::Cookie->fetch() }->{+shift}; $c ? $c->value : undef },
         D => sub { sprintf "%.3fms", (Time::HiRes::time - $self->start)*1000 },
         e => sub { $ENV{+shift} },
-        h => sub { $cgi->remote_host },
-        i => sub { $a->header_in(shift) },
+        h => sub { $r->remote_host },
+        i => sub { $r->header(shift) },
         l => sub { substr( Jifty->web->session->id || '-', 0, 8 ) },
-        m => sub { $r->request_method },
+        m => sub { $r->method },
         n => sub { $r->template_argument($_[0]) || $r->argument($_[0]) },
-        o => sub { $a->header_out(shift) },
+        o => sub { Jifty->web->response->header(shift) },
         p => sub {
             return Jifty->config->framework("Web")->{Port} if $_[0] eq "canonical";
             return $ENV{SERVER_PORT} if $_[0] eq "local";
@@ -224,7 +223,7 @@ sub before_cleanup {
             return Jifty->config->framework("Web")->{Port};
         },
         P => sub { $$ },
-        s => sub { $a->header_out("Status") =~ /^(\d+)/; $1 || "200" },
+        s => sub { Jifty->web->response->status =~ /^(\d+)/; $1 || "200" },
         t => sub { DateTime->from_epoch(epoch => $self->start)->strftime(shift || "[%d/%b/%Y:%T %z]") },
         T => sub { sprintf "%.3fs", (Time::HiRes::time - $self->start) },
         u => sub { Jifty->web->current_user->username },
@@ -245,7 +244,7 @@ sub before_cleanup {
     my $replace = sub {
         my ($only_on, $string, $format) = @_;
         if (defined $only_on) {
-            return "" unless grep {$a->header_out("Status") eq $_} split /,/, $only_on;
+            return "" unless grep {Jifty->web->response->status eq $_} split /,/, $only_on;
         }
         my $r;
         if (exists $ESCAPES{$format}) {
