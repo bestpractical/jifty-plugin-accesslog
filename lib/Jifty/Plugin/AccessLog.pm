@@ -210,7 +210,7 @@ sub before_cleanup {
         C => sub { my $c = { CGI::Cookie->fetch() }->{+shift}; $c ? $c->value : undef },
         D => sub { sprintf "%.3fms", (Time::HiRes::time - $self->start)*1000 },
         e => sub { $ENV{+shift} },
-        h => sub { $r->remote_host || $r->address },
+        h => sub { $r->header("X-Forwarded-For") || $r->remote_host || $r->address },
         i => sub { $r->header(shift) },
         l => sub { substr( Jifty->web->session->id || '-', 0, 8 ) },
         m => sub { $r->method },
