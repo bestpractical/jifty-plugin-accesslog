@@ -215,7 +215,7 @@ sub before_cleanup {
         a => sub { ($self->respect_proxy && $r->header("X-Forwarded-For")) || $r->address },
         C => sub { my $c = { CGI::Cookie->fetch() }->{+shift}; $c ? $c->value : undef },
         D => sub { sprintf "%.3fms", (Time::HiRes::time - $self->start)*1000 },
-        e => sub { $ENV{+shift} },
+        e => sub { $r->env->{+shift} },
         h => sub { ($self->respect_proxy && $r->header("X-Forwarded-For")) || $r->remote_host || $r->address },
         i => sub { $r->header(shift) },
         l => sub { substr( Jifty->web->session->id || '-', 0, 8 ) },
@@ -224,8 +224,8 @@ sub before_cleanup {
         o => sub { Jifty->web->response->header(shift) },
         p => sub {
             return Jifty->config->framework("Web")->{Port} if $_[0] eq "canonical";
-            return $ENV{SERVER_PORT} if $_[0] eq "local";
-            return $ENV{REMOTE_PORT} if $_[0] eq "remote";
+            return $r->env->{SERVER_PORT} if $_[0] eq "local";
+            return $r->env->{REMOTE_PORT} if $_[0] eq "remote";
             return Jifty->config->framework("Web")->{Port};
         },
         P => sub { $$ },
