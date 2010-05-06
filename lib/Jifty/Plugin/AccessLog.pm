@@ -8,7 +8,7 @@ use Jifty::Util;
 use CGI::Cookie;
 use Time::HiRes qw();
 
-our $VERSION = 0.01;
+our $VERSION = 1.0;
 
 =head1 NAME
 
