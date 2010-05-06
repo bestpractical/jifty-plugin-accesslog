@@ -2,7 +2,7 @@ package Jifty::Plugin::AccessLog;
 use strict;
 use warnings;
 use base qw/Jifty::Plugin Class::Data::Inheritable/;
-__PACKAGE__->mk_accessors(qw/path format start/);
+__PACKAGE__->mk_accessors(qw/path format start respect_proxy/);
 
 use Jifty::Util;
 use CGI::Cookie;
@@ -32,6 +32,11 @@ Add the following to your site_config.yml
 =item path
 
 The file to log to; defaults to F<log/access_log>.
+
+=item respect_proxy
+
+If set to a true value, will display the C<X-Forwarded-For> header as
+the originating IP of requests.
 
 =item format
 
@@ -153,6 +158,7 @@ sub init {
 
     $self->path(Jifty::Util->absolute_path( $args{path} ));
     $self->format($args{format});
+    $self->respect_proxy($args{respect_proxy});
     Jifty::Handler->add_trigger(
         before_cleanup => sub { $self->before_cleanup }
     );
@@ -210,7 +216,7 @@ sub before_cleanup {
         C => sub { my $c = { CGI::Cookie->fetch() }->{+shift}; $c ? $c->value : undef },
         D => sub { sprintf "%.3fms", (Time::HiRes::time - $self->start)*1000 },
         e => sub { $ENV{+shift} },
-        h => sub { $r->header("X-Forwarded-For") || $r->remote_host || $r->address },
+        h => sub { ($self->respect_proxy && $r->header("X-Forwarded-For")) || $r->remote_host || $r->address },
         i => sub { $r->header(shift) },
         l => sub { substr( Jifty->web->session->id || '-', 0, 8 ) },
         m => sub { $r->method },
