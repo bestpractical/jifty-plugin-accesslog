@@ -212,7 +212,7 @@ sub before_cleanup {
 
     my %ESCAPES = (
         '%' => sub { '%' },
-        a => sub { $r->address },
+        a => sub { ($self->respect_proxy && $r->header("X-Forwarded-For")) || $r->address },
         C => sub { my $c = { CGI::Cookie->fetch() }->{+shift}; $c ? $c->value : undef },
         D => sub { sprintf "%.3fms", (Time::HiRes::time - $self->start)*1000 },
         e => sub { $ENV{+shift} },
