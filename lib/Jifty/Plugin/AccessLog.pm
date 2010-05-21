@@ -183,8 +183,6 @@ Open, and append to, the logfile with the format specified.
 sub before_cleanup {
     my $self = shift;
     my $r    = Jifty->web->request;
-    Jifty->web->response->status(200)
-      unless defined Jifty->web->response->status;
 
     my $actions = sub {
         my $long = shift;
