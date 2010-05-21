@@ -2,7 +2,7 @@ package Jifty::Plugin::AccessLog;
 use strict;
 use warnings;
 use base qw/Jifty::Plugin Class::Data::Inheritable/;
-__PACKAGE__->mk_accessors(qw/path format start respect_proxy/);
+__PACKAGE__->mk_accessors(qw/path format start respect_proxy partials partial_fh/);
 
 use Jifty::Util;
 use Time::HiRes qw();
@@ -135,6 +135,14 @@ As C<%X>, but also includes all argument values to each action.
 
 =back
 
+=item partials
+
+The prefix to log partial logfiles to.  These files are written to as
+soon as a request comes in, and truncated back to empty after it is
+written to the final logfile.  Non-empty partial logfiles contain
+requests which are the cause of critical errors, and should be
+examined more closely.
+
 =back
 
 =head2 METHODS
@@ -161,6 +169,10 @@ sub init {
     Jifty::Handler->add_trigger(
         before_cleanup => sub { $self->before_cleanup }
     );
+
+    Jifty::Handler->add_trigger(
+        have_request => sub { $self->have_request },
+    ) if $self->partials;
 }
 
 =head2 new_request
@@ -218,7 +230,7 @@ sub format_req {
         l => sub { substr( Jifty->web->session->id || '-', 0, 8 ) },
         m => sub { $r->method },
         n => sub { $r->template_argument($_[0]) || $r->argument($_[0]) },
-        o => sub { Jifty->web->response->header(shift) },
+        o => sub { $self->start and Jifty->web->response->header(shift) },
         p => sub {
             return Jifty->config->framework("Web")->{Port} if $_[0] eq "canonical";
             return $r->env->{SERVER_PORT} if $_[0] eq "local";
@@ -226,10 +238,10 @@ sub format_req {
             return Jifty->config->framework("Web")->{Port};
         },
         P => sub { $$ },
-        s => sub { Jifty->web->response->status =~ /^(\d+)/; $1 || "200" },
-        t => sub { DateTime->from_epoch(epoch => $self->start)->strftime(shift || "[%d/%b/%Y:%T %z]") },
-        T => sub { sprintf "%.3fs", (Time::HiRes::time - $self->start) },
-        u => sub { Jifty->web->current_user->username },
+        s => sub { $self->start and Jifty->web->response->status =~ /^(\d+)/ and $1 },
+        t => sub { $self->start and DateTime->from_epoch(epoch => $self->start)->strftime(shift || "[%d/%b/%Y:%T %z]") },
+        T => sub { $self->start and sprintf("%.3fs", (Time::HiRes::time - $self->start)) },
+        u => sub { $self->start and Jifty->web->current_user->username },
         U => sub {
             if (my @f = $r->fragments) {
                 return '[' . join(" ", map {s/ /%20/g;$_} map {$_->path} @f ) . ']';
@@ -247,6 +259,7 @@ sub format_req {
     my $replace = sub {
         my ($only_on, $string, $format) = @_;
         if (defined $only_on) {
+            return "" unless defined Jifty->web->response->status;
             return "" unless grep {Jifty->web->response->status eq $_} split /,/, $only_on;
         }
         my $r;
@@ -278,6 +291,48 @@ sub before_cleanup {
     };
     $access_log->syswrite( $self->format_req . "\n" );
     $access_log->close;
+    $self->start(undef);
+    # Once the request has been written to the actual access log, we
+    # purge the partial request from disk
+    if ($self->partial_fh) {
+        seek($self->partial_fh, 0, 0);
+        truncate($self->partial_fh, 0);
+    }
+}
+
+=head2 have_request
+
+Write the incoming request to the partial logfile; this is only called
+if partial logfiles are configured.
+
+=cut
+
+sub have_request {
+    my $self = shift;
+    unless ($self->partial_fh) {
+        open my $fh, ">>", $self->partials.$$ or do {
+            $self->log->error("Unable to open @{[$self->partials]}$$ partial for writing: $!");
+            return;
+        };
+        $self->partial_fh($fh);
+    }
+    $self->partial_fh->syswrite( $self->format_req . "\n" );
+}
+
+=head2 END
+
+When the process terminates, remove partial logfiles which are empty.
+
+=cut
+
+END {
+    # Purge any empty partial request logs, but leave ones which have
+    # data in them
+    for my $plugin (grep {$_->isa("Jifty::Plugin::AccessLog") and $_->partial_fh} Jifty->plugins) {
+        next if $plugin->partial_fh->tell;
+        $plugin->partial_fh->close;
+        unlink($plugin->partials.$$);
+    }
 }
 
 =head1 SEE ALSO
