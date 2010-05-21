@@ -251,7 +251,8 @@ sub format_req {
         }
         my $r;
         if (exists $ESCAPES{$format}) {
-            $r = ref $ESCAPES{$format} ? eval {$ESCAPES{$format}->($string)} : $ESCAPES{$format};
+            $r = eval { $ESCAPES{$format}->($string) };
+            $self->log->warn("While formatting $format, got $@") if $@;
         } else {
             $r = "%".$format;
         }
