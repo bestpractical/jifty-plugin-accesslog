@@ -174,13 +174,13 @@ sub new_request {
     $self->start(Time::HiRes::time);
 }
 
-=head2 before_cleanup
+=head2 format_req
 
-Open, and append to, the logfile with the format specified.
+Return the formatted string to log
 
 =cut
 
-sub before_cleanup {
+sub format_req {
     my $self = shift;
     my $r    = Jifty->web->request;
 
@@ -258,15 +258,24 @@ sub before_cleanup {
         return defined $r ? $r : "-";
     };
 
-
     my $s = $self->format;
     $s =~ s/%(\d+(?:,\d+)*)?(?:{(.*?)})?([a-zA-Z%])/$replace->($1,$2,$3)/ge;
+    return $s;
+}
 
+=head2 before_cleanup
+
+Write the access log line to the file
+
+=cut
+
+sub before_cleanup {
+    my $self = shift;
     open my $access_log, '>>', $self->path or do {
         $self->log->error("Unable to open @{[$self->path]} for writing: $!");
         return;
     };
-    $access_log->syswrite( "$s\n" );
+    $access_log->syswrite( $self->format_req . "\n" );
     $access_log->close;
 }
 
