@@ -5,7 +5,6 @@ use base qw/Jifty::Plugin Class::Data::Inheritable/;
 __PACKAGE__->mk_accessors(qw/path format start respect_proxy/);
 
 use Jifty::Util;
-use CGI::Cookie;
 use Time::HiRes qw();
 
 our $VERSION = 1.0;
@@ -213,7 +212,7 @@ sub before_cleanup {
     my %ESCAPES = (
         '%' => sub { '%' },
         a => sub { ($self->respect_proxy && $r->header("X-Forwarded-For")) || $r->address },
-        C => sub { my $c = { CGI::Cookie->fetch() }->{+shift}; $c ? $c->value : undef },
+        C => sub { $r->cookies->{+shift} },
         D => sub { sprintf "%.3fms", (Time::HiRes::time - $self->start)*1000 },
         e => sub { $r->env->{+shift} },
         h => sub { ($self->respect_proxy && $r->header("X-Forwarded-For")) || $r->remote_host || $r->address },
