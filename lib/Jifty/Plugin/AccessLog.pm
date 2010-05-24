@@ -7,7 +7,7 @@ __PACKAGE__->mk_accessors(qw/path format start respect_proxy partials partial_fh
 use Jifty::Util;
 use Time::HiRes qw();
 
-our $VERSION = 1.0;
+our $VERSION = 1.1;
 
 =head1 NAME
 
